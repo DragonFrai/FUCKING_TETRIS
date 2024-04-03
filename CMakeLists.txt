@@ -13,7 +13,7 @@ include_directories(${SDL2_INCLUDE_DIRS})
 # =====================
 # PROJECT SRC FILES
 
-add_executable(TetrisSDL src/main.cpp src/app.cpp)
+add_executable(TetrisSDL src/main.cpp)
 
 # /PROJECT SRC FILES
 # ==================
