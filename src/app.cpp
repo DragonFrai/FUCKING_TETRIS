@@ -1,5 +1,6 @@
 #include <stdexcept>
 #include <SDL2/SDL.h>
+#include "render/texture.cpp"
 #include "tetromino.cpp"
 
 
@@ -9,37 +10,30 @@
 // ==============
 // Resources
 
-struct Resources {
+class Resources {
 public:
-    SDL_Surface* texBlock;
+    Texture texBlock;
+
+    Resources(const Resources&) = delete;
+    Resources(Resources&&) = default;
+    ~Resources() = default;
 };
 
-SDL_Surface* loadTexture(const char* path) {
-    auto tex = SDL_LoadBMP(path);
-    if (tex == NULL) {
-        printf("Unable load texture: %s!\nSDL Error: %s\n", path, SDL_GetError());
-        throw std::runtime_error("Error on load texture");
-    }
-    return tex;
-}
 
 void modulateSurface(SDL_Surface surface, int r, int g, int b) {
 
 }
 
-Resources loadResources() {
-    auto texBlock = loadTexture("assets/textures/t-block-s.bmp");
-
-    SDL_DuplicateSurface()
+Resources loadResources(SDL_Renderer* renderer) {
+    auto texBlock = Texture(renderer, "assets/textures/t-block-s.bmp");
 
     return Resources {
-        texBlock
+        std::move(texBlock)
     };
 };
 
-void destroyResources(Resources* res) {
-    SDL_FreeSurface(res->texBlock);
-    res->texBlock = NULL;
+void destroyResources(SDL_Renderer* renderer, Resources* res) {
+
 }
 
 // ===========
@@ -86,50 +80,60 @@ const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
 
 SDL_Point point(int x, int y) {
-    return SDL_Point { x, y};
+    return SDL_Point { x, y };
 }
 
 class App {
 public:
 
     SDL_Window* window;
-    SDL_Surface* windowSurface;
+    SDL_Renderer* renderer;
     Resources resources;
 
-    App(SDL_Window* window, SDL_Surface* windowSurface, Resources res) {
-        this->window = window;
-        this->windowSurface = windowSurface;
-        this->resources = res;
-    }
+    App() = delete;
+    App(const App&) = delete;
+    App(App&&) = default;
+    ~App() = default;
 
-    void blitSurface(SDL_Surface* src, SDL_Point point) {
-        int destW = std::min(src->clip_rect.w, this->windowSurface->clip_rect.w - point.x);
-        int destH = std::min(src->clip_rect.h, this->windowSurface->clip_rect.h - point.y);
-        SDL_Rect destRect = SDL_Rect { point.x, point.y, destW, destH };
-        SDL_BlitSurface(src, NULL, this->windowSurface, &destRect);
-    }
+    App(SDL_Window* window, SDL_Renderer* renderer, Resources res):
+            window(window),
+            renderer(renderer),
+            resources(std::move(res))
+    { }
 
-    void updateSurface() {
-        SDL_UpdateWindowSurface(this->window);
+
+    void drawTextureCopy(Texture& texture, SDL_Point point) {
+        auto textureRect = texture.rect();
+        SDL_Rect destRect = SDL_Rect { point.x, point.y, textureRect.w, textureRect.h };
+        SDL_RenderCopy(this->renderer, texture.texture(), &textureRect, &destRect);
     }
 
     void handleEvents() {
-        blitSurface(this->resources.texBlock, point(0, 0));
-        blitSurface(this->resources.texBlock, point(10, 0));
-        blitSurface(this->resources.texBlock, point(20, 0));
-        blitSurface(this->resources.texBlock, point(0, 10));
-        blitSurface(this->resources.texBlock, point(10, 10));
+
     }
 
     void drawState() {
+        SDL_RenderClear(this->renderer);
 
+        drawTextureCopy(this->resources.texBlock, point(0, 0));
+        drawTextureCopy(this->resources.texBlock, point(100, 0));
+        drawTextureCopy(this->resources.texBlock, point(200, 0));
+        drawTextureCopy(this->resources.texBlock, point(0, 100));
+        drawTextureCopy(this->resources.texBlock, point(100, 100));
+
+        SDL_RenderPresent(this->renderer);
     }
 
     // While true: Do game loop
     bool tick() {
         handleEvents();
         drawState();
-        updateSurface();
+
+        auto error = SDL_GetError();
+        if (error && strcmp(error, "") != 0) {
+            printf("> SDL ERROR: %s\n", error);
+        }
+
         return true;
     }
 };
@@ -140,25 +144,29 @@ App Tetris_initApplication() {
         throw std::runtime_error("Unable init SDL");
     }
 
-    auto window = SDL_CreateWindow("TetrisSDL", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
-    if( window == NULL ) {
+    SDL_Window* window;
+    SDL_Renderer* renderer;
+    auto createWindow = SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN, &window, &renderer);
+    if(createWindow) {
         printf( "Window could not be created! SDL_Error: %s\n", SDL_GetError() );
         throw std::runtime_error("Unable create Window");
     }
+    SDL_SetWindowTitle(window, "TetrisSDL");
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 
-    auto windowSurface = SDL_GetWindowSurface(window);
+    auto resources = loadResources(renderer);
 
-    auto resources = loadResources();
-
-    return App(window, windowSurface, resources);
+    return App(window, renderer, std::move(resources));
 }
 
 void Tetris_closeApplication(App* app) {
-    destroyResources(&app->resources);
+    destroyResources(app->renderer, &app->resources);
 
     SDL_DestroyWindow(app->window);
-    app->windowSurface = NULL;
     app->window = NULL;
+
+    SDL_DestroyRenderer(app->renderer);
+    app->renderer = NULL;
 
     SDL_Quit();
 }
