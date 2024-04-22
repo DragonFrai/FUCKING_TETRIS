@@ -101,15 +101,21 @@ public:
             resources(std::move(res))
     { }
 
-
     void drawTextureCopy(Texture& texture, SDL_Point point) {
         auto textureRect = texture.rect();
         SDL_Rect destRect = SDL_Rect { point.x, point.y, textureRect.w, textureRect.h };
         SDL_RenderCopy(this->renderer, texture.texture(), &textureRect, &destRect);
     }
 
-    void handleEvents() {
+    bool handleEvents() {
+        bool continueLoop = true;
 
+        SDL_Event event; // handle window closing
+        if (SDL_PollEvent(&event) && (SDL_QUIT==event.type || (SDL_KEYDOWN==event.type && SDLK_ESCAPE==event.key.keysym.sym))) {
+            continueLoop = false;
+        }
+
+        return continueLoop;
     }
 
     void drawState() {
@@ -126,7 +132,7 @@ public:
 
     // While true: Do game loop
     bool tick() {
-        handleEvents();
+        bool continueLoop = handleEvents();
         drawState();
 
         auto error = SDL_GetError();
@@ -134,7 +140,7 @@ public:
             printf("> SDL ERROR: %s\n", error);
         }
 
-        return true;
+        return continueLoop;
     }
 };
 
