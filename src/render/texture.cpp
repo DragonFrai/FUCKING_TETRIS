@@ -32,7 +32,7 @@ private:
 
 public:
     Texture(SDL_Texture* texture, int width, int height) {
-        printf("Texture <no_path> created.");
+        printf("Texture <no_path> created.\n");
 
         {
             this->textureHandle = texture;
@@ -46,7 +46,7 @@ public:
         int w = 0;
         int h = 0;
         auto t = loadTexture(renderer, path, &w, &h);
-        printf("Texture %s created.", path);
+        printf("Texture %s created.\n", path);
 
         {
             this->textureHandle = t;
@@ -60,7 +60,7 @@ public:
         if (this->textureHandle != NULL) {
             auto path = "<no_path>";
             if(this->sourcePath != NULL) { path = this->sourcePath; }
-            printf("Texture %s deleted.", path);
+            printf("Texture %s deleted.\n", path);
             SDL_DestroyTexture(this->textureHandle);
         }
 
@@ -86,7 +86,7 @@ public:
         other.sizeHeight = 0;
     };
 
-    SDL_Texture* texture() {
+    SDL_Texture* sldHandle() {
         return this->textureHandle;
     }
 
