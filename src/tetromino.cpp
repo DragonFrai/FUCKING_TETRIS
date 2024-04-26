@@ -5,32 +5,27 @@
 #define FIELD_H 24
 
 
-enum TetroColor {
-    white,
+// =================================================
+// [ Плитка (1 плитка, не фигура!!!) и поле плиток ]
+
+enum TetroTile {
     red,
+    orange,
     yellow,
     green,
     blue,
     violet,
+    //
+    white,
     black
 };
-
-
-
-class TetroTile {
-public:
-    TetroColor color;
-
-};
-
-
-enum TetroRotateMode {
-    rotate
-};
+const TetroTile BASE_TILES[6] = {red, orange, yellow, green, blue, violet };
 
 class TetroField {
+private:
     std::optional<TetroTile> tiles[FIELD_H][FIELD_W];
 
+public:
     std::optional<std::optional<TetroTile>*> get(int x, int y) {
         if (x < 0 || x >= FIELD_W) { return std::optional<std::optional<TetroTile>*>(); }
         if (y < 0 || y >= FIELD_H) { return std::optional<std::optional<TetroTile>*>(); }
@@ -53,15 +48,37 @@ class TetroField {
 
 };
 
-class TetroShape {
-public:
-    bool mask[4][4];
-    int x;
-    int y;
+// ===================================
+// [ Падающая фигура из нескольких плиток! ]
 
+enum TetroRotateMode {
+    rotate, flip, none
 };
 
-class TetroState {
-    TetroField field;
-    std::optional<TetroShape> activeShape;
+enum TetroShapeClass {
+    I, L, J, T, S, Z, O
+};
+
+
+// Center:
+// .  .  .  .
+// .  .  .  .
+// .  C  .  .
+// .  .  .  .
+
+class TetroShapePrototype {
+public:
+    int tilesCount;
+    int offsetsX[16];
+    int offsetsY[16];
+    TetroRotateMode rotateMode;
+    TetroTile tile;
+};
+
+class TetroActiveShape {
+public:
+    int x, y;
+    TetroShapePrototype prototype;
+
+
 };

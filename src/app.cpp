@@ -1,11 +1,16 @@
 #include <stdexcept>
 #include <SDL2/SDL.h>
+#include <vector>
+#include <optional>
 #include "render/texture.cpp"
 #include "tetromino.cpp"
 
+#define GAME_SPEED 1.0
+#define FALL_BASE_T 0.5
 
 #define VIEWABLE_FIELD_H 20
-#define VIEWABLE_FIELD_X (FIELD_H - VIEWABLE_FIELD_H)
+#define VIEWABLE_FIELD_Y (FIELD_H - VIEWABLE_FIELD_H)
+#define TILE_SIZE 16
 
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
@@ -49,11 +54,6 @@ public:
     Resources(Resources&&) = default;
     ~Resources() = default;
 };
-
-
-void modulateSurface(SDL_Surface surface, int r, int g, int b) {
-
-}
 
 Resources loadResources(SDL_Renderer* renderer) {
     auto texBlock = Texture(renderer, "assets/textures/t-block-s.bmp");
@@ -165,6 +165,19 @@ enum CleaningMode { line = 0, color = 1 };
 
 enum ExtraTilesMode { off = 0, on = 1 };
 
+SDL_Color tileSdlColor(TetroTile color) {
+    switch(color) {
+        case TetroTile::red: return COL_RED;
+        case TetroTile::orange: return COL_ORANGE;
+        case TetroTile::yellow: return COL_YELLOW;
+        case TetroTile::green: return COL_GREEN;
+        case TetroTile::blue: return COL_CYAN;
+        case TetroTile::violet: return COL_BLUE;
+        case TetroTile::white: return COL_GRAY_LIGHT;
+        case TetroTile::black: return COL_GRAY_DARK;
+    }
+}
+
 class App {
 public:
 
@@ -172,7 +185,7 @@ public:
     SDL_Renderer* renderer;
     Resources resources;
 
-    AppState state;
+    AppState __state;
     InputState input;
 
     // =================
@@ -186,6 +199,14 @@ public:
     // =================
     // [game state part]
 
+    TetroField field;
+    std::optional<TetroActiveShape> activeShape;
+    float tickAcc;
+    int score;
+    float gameSpeed;
+    std::vector<TetroShapeClass> shapeBag;
+    bool isLose;
+
     // [game state part]
     // =================
 
@@ -198,13 +219,22 @@ public:
             window(window),
             renderer(renderer),
             resources(std::move(res)),
-            state(AppState::menu),
+            __state(AppState::menu),
 
             // [menu]
             menuElement(MenuElement::newGame),
             cleaningMode(CleaningMode::line),
-            extraTilesMode(ExtraTilesMode::off)
-    { }
+            extraTilesMode(ExtraTilesMode::off),
+
+            // [game]
+            field(TetroField()),
+            activeShape(std::nullopt),
+            tickAcc(0.0),
+            score(0),
+            gameSpeed(GAME_SPEED),
+            shapeBag(std::vector<TetroShapeClass>()),
+            isLose(false)
+    {}
 
     void drawTextureCopyColored(Texture& texture, SDL_Point point, SDL_Color color) {
         auto textureRect = texture.rect();
@@ -216,6 +246,30 @@ public:
 
     void drawTextureCopy(Texture& texture, SDL_Point point) {
         drawTextureCopyColored(texture, point, SDL_Color { 255, 255, 255, 255});
+    }
+
+    void setMainState(AppState state) {
+        if (this->__state == state) {
+            printf("Change app __state to same");
+            exit(1);
+        }
+        if (this->__state == AppState::menu && state == AppState::game) {
+            this->__state = state;
+            this->field = TetroField();
+            this->tickAcc = 0.0;
+            this->score = 0;
+            this->isLose = false;
+            this->shapeBag.clear();
+
+            for (int x = 0; x < FIELD_W; x++) {
+                for (int y = 0; y < FIELD_H; y++) {
+                    this->field.set(x, y, std::optional{TetroTile {TetroTile::green }});
+                }
+            }
+        }
+        if (this->__state == AppState::game && state == AppState::menu) {
+            this->__state = state;
+        }
     }
 
     void updateInput() {
@@ -265,7 +319,7 @@ public:
         if (this->input.keyAction.isPressed()) {
             switch (this->menuElement) {
                 case MenuElement::newGame:
-                    this->state = AppState::game;
+                    this->setMainState(AppState::game);
                     break;
                 case MenuElement::cleaningMode:
                     this->cleaningMode = static_cast<CleaningMode>((this->cleaningMode + 1) % 2);
@@ -290,24 +344,59 @@ public:
         }
     }
 
-    void updateStateGame() {
-        if (this->input.keyBack.isPressed()) {
-            this->state = AppState::menu;
+    void updateStateGame(float dt) {
+        // Проверка выхода
+        if (this->input.keyBack.isPressed()) { this->setMainState(AppState::menu); return; }
+        // Проверка проигрыша
+        if (this->isLose) { return; }
+
+        // Определение должно ли произойти падение фигуры
+        this->tickAcc += dt;
+        float fallT = FALL_BASE_T / this->gameSpeed;
+        bool isFall = false;
+        if (this->tickAcc >= fallT) {
+            isFall = true;
+            this->tickAcc = this->tickAcc - fallT * floor(this->tickAcc / fallT); // Skipping many ticks on lag fix
         }
+
+        // Определение управление фигурой
+        if (isFall) {
+
+
+
+        }
+
+        // Обработка движения фигуры (падение + управление)
+
     }
 
     // Game logic
-    void updateState() {
-        switch (this->state) {
+    void updateState(float dt) {
+        switch (this->__state) {
             case AppState::menu:
                 this->updateStateMenu();
                 break;
             case AppState::game:
-                this->updateStateGame();
+                this->updateStateGame(dt);
                 break;
 //            default:
 //                printf("UNREACHABLE\n");
 //                exit(1);
+        }
+    }
+
+    bool shapeCanPlaced(TetroActiveShape shape) {
+        int count = shape.prototype.tilesCount;
+        int fieldXs[16], fieldYs[16];
+        for (int i = 0; i < count; i++) {
+            fieldXs[i] = shape.x + shape.prototype.offsetsX[i];
+            fieldYs[i] = shape.y + shape.prototype.offsetsY[i];
+        }
+        for (int i = 0; i < count; i++) {
+            int x = fieldXs[i];
+            int y = fieldYs[i];
+            if (x < 0 || x >= FIELD_W || y < 0 || y >= FIELD_H) { return false; }
+            if (this->field.getAssured(x, y)->has_value()) { return false; }
         }
     }
 
@@ -350,33 +439,61 @@ public:
     }
 
     void drawGame() {
-        SDL_Color colors[13] {
-                COL_WHITE,
-                COL_RED,
-                COL_ORANGE,
-                COL_YELLOW,
-                COL_LIME,
-                COL_GREEN,
-                COL_GREEN_CYAN,
-                COL_CYAN,
-                COL_BLUE_LIGHT,
-                COL_BLUE,
-                COL_PURPLE,
-                COL_PINK,
-                COL_PINK_DARK
-        };
-
-        int x = 0;
-        for(int i = 0; i < 13; i++) {
-            drawTextureCopyColored(this->resources.texBlock, point(x, 0), colors[i]);
-            x += 16;
+        // ====
+        // DEBUG DRAW
+        SDL_Color colors[6];
+        for (int i = 0; i < 6; i++) {
+            colors[i] = tileSdlColor(BASE_TILES[i]);
         }
+        for(int i = 0; i < 6; i++) {
+            drawTextureCopyColored(this->resources.texBlock, point(i * 16, 0), colors[i]);
+        }
+        // DEBUG DRAW
+        // ====
+
+        int fieldMinX = SCREEN_WIDTH / 2 - TILE_SIZE*FIELD_W / 2;
+        int fieldMinY = SCREEN_HEIGHT / 2 - TILE_SIZE*VIEWABLE_FIELD_H / 2;
+        int fieldW = TILE_SIZE * FIELD_W;
+        int fieldH = TILE_SIZE * VIEWABLE_FIELD_H;
+        {
+            int x1 = fieldMinX - 1;
+            int y1 = fieldMinY - 1;
+            int x2 = fieldMinX + fieldW;
+            int y2 = fieldMinY + fieldH;
+            SDL_SetRenderDrawColor(this->renderer, 128, 128, 128, 255);
+            SDL_RenderDrawLine(this->renderer, x1, y1, x1, y2);
+            SDL_RenderDrawLine(this->renderer, x1, y1, x2, y1);
+            SDL_RenderDrawLine(this->renderer, x2, y2, x1, y2);
+            SDL_RenderDrawLine(this->renderer, x2, y2, x2, y1);
+            SDL_SetRenderDrawColor(this->renderer, 0, 0, 0, 255);
+        }
+        // xp, yp - Визуальные координаты поля
+        // xi, yi - Координаты в массиве поля
+        for (int xp = 0; xp < FIELD_W; xp++) {
+            for (int yp = 0; yp < VIEWABLE_FIELD_H; yp++) {
+                int xi = xp;
+                int yi = yp + VIEWABLE_FIELD_Y;
+
+                auto tileOpt = this->field.getAssured(xi, yi);
+                if (!tileOpt->has_value()) { continue; }
+                auto tile = tileOpt->value();
+
+                auto sdlColor = tileSdlColor(tile);
+                this->drawTextureCopyColored(
+                    this->resources.texBlock,
+                    point(fieldMinX + xp * TILE_SIZE, fieldMinY + yp * TILE_SIZE),
+                    sdlColor
+                );
+            }
+        }
+
+
     }
 
     void drawState() {
         SDL_RenderClear(this->renderer);
 
-        switch (this->state) {
+        switch (this->__state) {
             case AppState::menu:
                 this->drawMenu();
                 break;
@@ -389,9 +506,9 @@ public:
     }
 
     // While true: Do game loop
-    bool tick() {
+    bool tick(float dt) {
         updateInput();
-        updateState();
+        updateState(dt);
         drawState();
 
         auto error = SDL_GetError();

@@ -15,7 +15,7 @@ int main( int argc, char* args[] )
     bool doLoop = true;
     while (doLoop) {
         std::this_thread::sleep_for(20ms);
-        doLoop = app.tick();
+        doLoop = app.tick(0.02);
     }
 
     Tetris_closeApplication(&app);
