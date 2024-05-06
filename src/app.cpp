@@ -165,16 +165,16 @@ enum CleaningMode { line = 0, color = 1 };
 
 enum ExtraTilesMode { off = 0, on = 1 };
 
-SDL_Color tileSdlColor(TetroTile color) {
+SDL_Color tileSdlColor(TetroColor color) {
     switch(color) {
-        case TetroTile::red: return COL_RED;
-        case TetroTile::orange: return COL_ORANGE;
-        case TetroTile::yellow: return COL_YELLOW;
-        case TetroTile::green: return COL_GREEN;
-        case TetroTile::blue: return COL_CYAN;
-        case TetroTile::violet: return COL_BLUE;
-        case TetroTile::white: return COL_GRAY_LIGHT;
-        case TetroTile::black: return COL_GRAY_DARK;
+        case TetroColor::red: return COL_RED;
+        case TetroColor::orange: return COL_ORANGE;
+        case TetroColor::yellow: return COL_YELLOW;
+        case TetroColor::green: return COL_GREEN;
+        case TetroColor::blue: return COL_CYAN;
+        case TetroColor::violet: return COL_BLUE;
+        case TetroColor::white: return COL_GRAY_LIGHT;
+        case TetroColor::black: return COL_GRAY_DARK;
     }
 }
 
@@ -263,9 +263,21 @@ public:
 
             for (int x = 0; x < FIELD_W; x++) {
                 for (int y = 0; y < FIELD_H; y++) {
-                    this->field.set(x, y, std::optional{TetroTile {TetroTile::green }});
+                    printf(" > %i %i\n", x, y);
+
+                    this->field.set(x, y, std::nullopt);
+//                    if ((x + y) % 2 == 0) {
+//                        this->field.set(x, y, std::optional(TetroColor::green));
+//                    }
                 }
             }
+
+            this->activeShape = std::optional(
+                TetroActiveShape(
+                    4, 2,
+                    TetroShapePrototype(TetroShapeClass::L, TetroColor::blue)
+                )
+            );
         }
         if (this->__state == AppState::game && state == AppState::menu) {
             this->__state = state;
@@ -350,23 +362,78 @@ public:
         // Проверка проигрыша
         if (this->isLose) { return; }
 
-        // Определение должно ли произойти падение фигуры
-        this->tickAcc += dt;
-        float fallT = FALL_BASE_T / this->gameSpeed;
-        bool isFall = false;
-        if (this->tickAcc >= fallT) {
-            isFall = true;
-            this->tickAcc = this->tickAcc - fallT * floor(this->tickAcc / fallT); // Skipping many ticks on lag fix
-        }
-
         // Определение управление фигурой
-        if (isFall) {
+        this->tickAcc += dt;
+        auto t = this->tickAcc;
 
+        float fallT = FALL_BASE_T / this->gameSpeed;
+        float forceFallT = fallT / 4.0;
 
+        bool downPressed = this->input.keyD.isDown();
+        bool upPressed = this->input.keyU.isDown();
+        bool leftPressed = this->input.keyL.isDown();
+        bool rightPressed = this->input.keyR.isDown();
 
+        bool handleMove = false;
+        bool resetT = false;
+        bool left = false;
+        bool right = false;
+        bool down = false;
+        bool rotate = false;
+
+        if (downPressed ? t >= forceFallT : t >= fallT) {
+            down = true;
+            handleMove = true;
+            resetT = true;
         }
 
-        // Обработка движения фигуры (падение + управление)
+        if (leftPressed && t >= forceFallT) {
+            left = true;
+            handleMove = true;
+            resetT = true;
+        }
+
+        if (rightPressed && t >= forceFallT) {
+            right = true;
+            handleMove = true;
+            resetT = true;
+        }
+
+        if (resetT) {
+            this->tickAcc = 0.0;// this->tickAcc - fallT * floor(this->tickAcc / fallT); // Skipping many ticks on lag fix
+        }
+
+        // Обработка движения фигуры
+        if (handleMove) {
+            if(this->activeShape.has_value()) {
+                TetroActiveShape& shape = this->activeShape.value();
+                TetroActiveShape movedShape = shape;
+                if (down) { movedShape.y += 1; }
+                if (left) { movedShape.x -= 1; }
+                if (right) { movedShape.x += 1; }
+
+                bool canMove = this->shapeCanPlaced(movedShape);
+                printf("Shape at (%i, %i) can move: %b\n", movedShape.x, movedShape.y, canMove);
+                if(canMove) {
+                    this->activeShape.value() = movedShape;
+                } else if(down) {
+                    // Здесь нам нужна еще не сдвинутая фигура.
+                    for (int i = 0; i < shape.prototype.tilesCount; i++) {
+                        int x = shape.x + shape.prototype.offsetsX[i];
+                        int y = shape.y + shape.prototype.offsetsY[i];
+                        this->field.set(x, y, std::optional(shape.prototype.color));
+                    }
+                    this->activeShape = std::nullopt;
+                    this->activeShape = std::optional(
+                            TetroActiveShape(
+                                    4, 2,
+                                    TetroShapePrototype(TetroShapeClass::L, TetroColor::yellow)
+                            )
+                    );
+                }
+            }
+        }
+
 
     }
 
@@ -385,20 +452,19 @@ public:
         }
     }
 
-    bool shapeCanPlaced(TetroActiveShape shape) {
+    bool shapeCanPlaced(TetroActiveShape& shape) {
         int count = shape.prototype.tilesCount;
-        int fieldXs[16], fieldYs[16];
         for (int i = 0; i < count; i++) {
-            fieldXs[i] = shape.x + shape.prototype.offsetsX[i];
-            fieldYs[i] = shape.y + shape.prototype.offsetsY[i];
-        }
-        for (int i = 0; i < count; i++) {
-            int x = fieldXs[i];
-            int y = fieldYs[i];
+            int x = shape.x + shape.prototype.offsetsX[i];
+            int y = shape.y + shape.prototype.offsetsY[i];
+            printf(" > dot at %i %i\n", x, y);
             if (x < 0 || x >= FIELD_W || y < 0 || y >= FIELD_H) { return false; }
             if (this->field.getAssured(x, y)->has_value()) { return false; }
         }
+        return true;
     }
+
+
 
     void drawMenu() {
         auto activeColor = COL_WHITE;
@@ -438,6 +504,23 @@ public:
         }
     }
 
+    void drawDynamicShape(TetroShapePrototype shape, int x, int y, int clipping) {
+        for(int i = 0; i < shape.tilesCount; i++) {
+            int xp = shape.offsetsX[i];
+            int yp = shape.offsetsY[i];
+            if (yp <= clipping) { continue; }
+            this->drawTextureCopyColored(
+                    this->resources.texBlock,
+                    point(x + xp * TILE_SIZE, y + yp * TILE_SIZE),
+                    tileSdlColor(shape.color)
+            );
+        }
+    }
+
+    void drawDynamicShape(TetroShapePrototype shape, int x, int y) {
+        drawDynamicShape(shape, x, y, -2000000000);
+    }
+
     void drawGame() {
         // ====
         // DEBUG DRAW
@@ -467,6 +550,7 @@ public:
             SDL_RenderDrawLine(this->renderer, x2, y2, x2, y1);
             SDL_SetRenderDrawColor(this->renderer, 0, 0, 0, 255);
         }
+
         // xp, yp - Визуальные координаты поля
         // xi, yi - Координаты в массиве поля
         for (int xp = 0; xp < FIELD_W; xp++) {
@@ -487,7 +571,13 @@ public:
             }
         }
 
-
+        if (this->activeShape.has_value()) {
+            auto shape = this->activeShape.value();
+            auto x = fieldMinX + shape.x * TILE_SIZE;
+            auto y = fieldMinY + (shape.y - VIEWABLE_FIELD_Y) * TILE_SIZE;
+//            drawDynamicShape(shape.prototype, x, y, VIEWABLE_FIELD_Y - shape.y - 1);
+            drawDynamicShape(shape.prototype, x, y);
+        }
     }
 
     void drawState() {

@@ -8,7 +8,7 @@
 // =================================================
 // [ Плитка (1 плитка, не фигура!!!) и поле плиток ]
 
-enum TetroTile {
+enum TetroColor {
     red,
     orange,
     yellow,
@@ -19,29 +19,32 @@ enum TetroTile {
     white,
     black
 };
-const TetroTile BASE_TILES[6] = {red, orange, yellow, green, blue, violet };
+const TetroColor BASE_TILES[6] = {red, orange, yellow, green, blue, violet };
+
+// TODO: Add class
+using TetroTile = TetroColor;
 
 class TetroField {
 private:
-    std::optional<TetroTile> tiles[FIELD_H][FIELD_W];
+    std::optional<TetroColor> tiles[FIELD_W][FIELD_H];
 
 public:
-    std::optional<std::optional<TetroTile>*> get(int x, int y) {
-        if (x < 0 || x >= FIELD_W) { return std::optional<std::optional<TetroTile>*>(); }
-        if (y < 0 || y >= FIELD_H) { return std::optional<std::optional<TetroTile>*>(); }
-        return std::optional<std::optional<TetroTile>*>(&this->tiles[x][y]);
+    std::optional<std::optional<TetroColor>*> get(int x, int y) {
+        if (x < 0 || x >= FIELD_W) { return std::optional<std::optional<TetroColor>*>(); }
+        if (y < 0 || y >= FIELD_H) { return std::optional<std::optional<TetroColor>*>(); }
+        return std::optional<std::optional<TetroColor>*>(&this->tiles[x][y]);
     }
 
-    std::optional<TetroTile>* getAssured(int x, int y) {
+    std::optional<TetroColor>* getAssured(int x, int y) {
         auto r = this->get(x, y);
         if(r.has_value()) {
             return r.value();
         } else {
-            throw std::out_of_range("");
+            throw std::out_of_range("Out of field range");
         }
     }
 
-    void set(int x, int y, std::optional<TetroTile> tile) {
+    void set(int x, int y, std::optional<TetroColor> tile) {
         auto memCell = this->getAssured(x, y);
         *memCell = tile;
     }
@@ -56,7 +59,9 @@ enum TetroRotateMode {
 };
 
 enum TetroShapeClass {
-    I, L, J, T, S, Z, O
+    I, L, J, T, S, Z, O,
+    // Extra
+    Dot
 };
 
 
@@ -72,7 +77,113 @@ public:
     int offsetsX[16];
     int offsetsY[16];
     TetroRotateMode rotateMode;
-    TetroTile tile;
+    TetroColor color;
+
+    TetroShapePrototype(const TetroShapePrototype& other) {
+        this->tilesCount = other.tilesCount;
+        std::copy(std::begin(other.offsetsX), std::end(other.offsetsX), this->offsetsX);
+        std::copy(std::begin(other.offsetsY), std::end(other.offsetsY), this->offsetsY);
+        this->rotateMode = other.rotateMode;
+        this->color = other.color;
+    }
+
+    TetroShapePrototype(TetroShapeClass clazz, TetroColor color) {
+        this->color = color;
+        switch(clazz) {
+            case TetroShapeClass::I:
+                this->tilesCount = 4;
+                this->rotateMode = TetroRotateMode::flip;
+                this->offsetsX[0] = 0;
+                this->offsetsY[0] = -2;
+                this->offsetsX[1] = 0;
+                this->offsetsY[1] = -1;
+                this->offsetsX[2] = 0;
+                this->offsetsY[2] = 0;
+                this->offsetsX[3] = 0;
+                this->offsetsY[3] = 1;
+                break;
+            case TetroShapeClass::J:
+                this->tilesCount = 4;
+                this->rotateMode = TetroRotateMode::rotate;
+                this->offsetsX[0] = 0;
+                this->offsetsY[0] = -1;
+                this->offsetsX[1] = 0;
+                this->offsetsY[1] = 0;
+                this->offsetsX[2] = 0;
+                this->offsetsY[2] = 1;
+                this->offsetsX[3] = -1;
+                this->offsetsY[3] = 1;
+                break;
+            case TetroShapeClass::L:
+                this->tilesCount = 4;
+                this->rotateMode = TetroRotateMode::rotate;
+                this->offsetsX[0] = 0;
+                this->offsetsY[0] = -1;
+                this->offsetsX[1] = 0;
+                this->offsetsY[1] = 0;
+                this->offsetsX[2] = 0;
+                this->offsetsY[2] = 1;
+                this->offsetsX[3] = 1;
+                this->offsetsY[3] = 1;
+                break;
+            case TetroShapeClass::O:
+                this->tilesCount = 4;
+                this->rotateMode = TetroRotateMode::none;
+                this->offsetsX[0] = 0;
+                this->offsetsY[0] = 0;
+                this->offsetsX[1] = 0;
+                this->offsetsY[1] = 1;
+                this->offsetsX[2] = 1;
+                this->offsetsY[2] = 0;
+                this->offsetsX[3] = 1;
+                this->offsetsY[3] = 1;
+                break;
+            case TetroShapeClass::S:
+                this->tilesCount = 4;
+                this->rotateMode = TetroRotateMode::rotate;
+                this->offsetsX[0] = 1;
+                this->offsetsY[0] = 0;
+                this->offsetsX[1] = 0;
+                this->offsetsY[1] = 0;
+                this->offsetsX[2] = 0;
+                this->offsetsY[2] = 1;
+                this->offsetsX[3] = -1;
+                this->offsetsY[3] = 1;
+                break;
+            case TetroShapeClass::Z:
+                this->tilesCount = 4;
+                this->rotateMode = TetroRotateMode::rotate;
+                this->offsetsX[0] = -1;
+                this->offsetsY[0] = -1;
+                this->offsetsX[1] = -1;
+                this->offsetsY[1] = 0;
+                this->offsetsX[2] = 0;
+                this->offsetsY[2] = 0;
+                this->offsetsX[3] = 0;
+                this->offsetsY[3] = 1;
+                break;
+            case TetroShapeClass::T:
+                this->tilesCount = 4;
+                this->rotateMode = TetroRotateMode::rotate;
+                this->offsetsX[0] = 0;
+                this->offsetsY[0] = 0;
+                this->offsetsX[1] = -1;
+                this->offsetsY[1] = 0;
+                this->offsetsX[2] = 1;
+                this->offsetsY[2] = 0;
+                this->offsetsX[3] = 0;
+                this->offsetsY[3] = 1;
+                break;
+
+            // EXTRA
+            case TetroShapeClass::Dot:
+                this->tilesCount = 1;
+                this->rotateMode = TetroRotateMode::none;
+                this->offsetsX[0] = 0;
+                this->offsetsY[0] = 0;
+                break;
+        }
+    }
 };
 
 class TetroActiveShape {
@@ -80,5 +191,7 @@ public:
     int x, y;
     TetroShapePrototype prototype;
 
+    TetroActiveShape(const TetroActiveShape& other): x(other.x), y(other.y), prototype(other.prototype) {}
+    TetroActiveShape(int x, int y, TetroShapePrototype prototype): x(x), y(y), prototype(prototype) {}
 
 };
