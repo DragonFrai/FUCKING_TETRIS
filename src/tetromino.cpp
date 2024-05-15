@@ -76,10 +76,15 @@ public:
         std::copy(std::begin(other.offsetsX), std::end(other.offsetsX), this->offsetsX);
         std::copy(std::begin(other.offsetsY), std::end(other.offsetsY), this->offsetsY);
         this->color = other.color;
+        this->clazz = other.clazz;
+        this->variant = other.variant;
     }
 
     TetroShapePrototype(TetroShapeClass clazz, int variant, TetroColor color) {
         const char* line;
+
+        printf("Class %i variant %i\n", clazz, variant);
+
         switch (clazz) {
             case TetroShapeClass::O: line = SHAPE_O; break;
             case TetroShapeClass::I:
@@ -139,6 +144,10 @@ public:
                 this->offsetsY[c] = y;
                 c += 1;
             }
+        }
+        if (c == 0) {
+            printf("EMPTY SHAPE\n");
+            exit(1);
         }
 
         this->color = color;

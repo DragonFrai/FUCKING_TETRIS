@@ -49,7 +49,6 @@ public:
     Texture menuExtraTilesOn;
     Texture menuExit;
 
-
     Resources(const Resources&) = delete;
     Resources(Resources&&) = default;
     ~Resources() = default;
@@ -461,6 +460,7 @@ public:
 
         bool downPressed = this->input.keyD.isDown();
         bool upPressed = this->input.keyU.isDown();
+        bool upJustPressed = this->input.keyU.isPressed();
         bool leftPressed = this->input.keyL.isDown();
         bool rightPressed = this->input.keyR.isDown();
 
@@ -489,8 +489,23 @@ public:
             resetT = true;
         }
 
+        if (upJustPressed) {
+            rotate = true;
+        }
+
         if (resetT) {
             this->tickAcc = 0.0;// this->tickAcc - fallT * floor(this->tickAcc / fallT); // Skipping many ticks on lag fix
+        }
+
+        // Обработка вращения фигуры
+        if (rotate && this->activeShape.has_value()) {
+            TetroActiveShape shape = this->activeShape.value();
+            auto rotatedPrototype = shape.prototype.rotated();
+            shape.prototype = rotatedPrototype;
+
+            if (shapeCanPlaced(shape)) {
+                this->activeShape.value() = shape;
+            }
         }
 
         // Обработка движения фигуры
@@ -503,7 +518,6 @@ public:
                 if (right) { movedShape.x += 1; }
 
                 bool canMove = this->shapeCanPlaced(movedShape);
-                printf("Shape at (%i, %i) can move: %b\n", movedShape.x, movedShape.y, canMove);
                 if(canMove) {
                     this->activeShape.value() = movedShape;
                 } else if(down) {
