@@ -125,8 +125,6 @@ public:
     TetroShapePrototype(TetroShapeClass clazz, int variant, TetroColor color) {
         const char* line;
 
-        printf("Class %i variant %i\n", clazz, variant);
-
         switch (clazz) {
             case TetroShapeClass::O: line = SHAPE_O; break;
             case TetroShapeClass::I:

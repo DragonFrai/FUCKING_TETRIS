@@ -238,7 +238,8 @@ public:
 
     TetroField field;
     std::optional<TetroActiveShape> activeShape;
-    float tickAcc;
+    float tickAccDown;
+    float tickAccSide;
     int score;
     float gameSpeed;
     std::vector<TetroShapeClass> shapeBag;
@@ -267,7 +268,8 @@ public:
             // [game]
             field(TetroField()),
             activeShape(std::nullopt),
-            tickAcc(0.0),
+            tickAccDown(0.0),
+            tickAccSide(0.0),
             score(0),
             gameSpeed(GAME_SPEED),
             shapeBag(std::vector<TetroShapeClass>()),
@@ -331,7 +333,7 @@ public:
         if (this->__state == AppState::menu && state == AppState::game) {
             this->__state = state;
             this->field = TetroField();
-            this->tickAcc = 0.0;
+            this->tickAccDown = 0.0;
             this->score = 0;
             this->isLose = false;
             this->activeShape = std::nullopt;
@@ -417,11 +419,17 @@ public:
         if (this->isLose) { return; }
 
         // Определение управление фигурой
-        this->tickAcc += dt;
-        auto t = this->tickAcc;
+        this->tickAccDown += dt;
+
+        if (this->tickAccSide > 0.0) {
+            this->tickAccSide -= dt;
+        }
+        auto tS = this->tickAccSide;
+        auto tD = this->tickAccDown;
 
         float fallT = FALL_BASE_T / this->gameSpeed;
-        float forceFallT = fallT / 4.0;
+        float sideT = fallT / 8.0;
+        float forceFallT = fallT / 12.0;
 
         bool downPressed = this->input.keyD.isDown();
         bool upPressed = this->input.keyU.isDown();
@@ -436,22 +444,22 @@ public:
         bool down = false;
         bool rotate = false;
 
-        if (downPressed ? t >= forceFallT : t >= fallT) {
+        if (downPressed ? tD >= forceFallT : tD >= fallT) {
             down = true;
             handleMove = true;
             resetT = true;
         }
 
-        if (leftPressed && t >= forceFallT) {
+        if (leftPressed && tS <= 0.0) {
             left = true;
             handleMove = true;
-            resetT = true;
+            if (downPressed) { down = true; }
         }
 
-        if (rightPressed && t >= forceFallT) {
+        if (rightPressed && tS <= 0.0) {
             right = true;
             handleMove = true;
-            resetT = true;
+            if (downPressed) { down = true; }
         }
 
         if (upJustPressed) {
@@ -459,7 +467,7 @@ public:
         }
 
         if (resetT) {
-            this->tickAcc = 0.0;// this->tickAcc - fallT * floor(this->tickAcc / fallT); // Skipping many ticks on lag fix
+            this->tickAccDown = 0.0;// this->tickAccDown - fallT * floor(this->tickAccDown / fallT); // Skipping many ticks on lag fix
         }
 
         // Обработка вращения фигуры
@@ -476,23 +484,37 @@ public:
         // Обработка движения фигуры
         if (handleMove) {
             if(this->activeShape.has_value()) {
-                TetroActiveShape& shape = this->activeShape.value();
-                TetroActiveShape movedShape = shape;
-                if (down) { movedShape.y += 1; }
-                if (left) { movedShape.x -= 1; }
-                if (right) { movedShape.x += 1; }
+                // handle down
+                {
+                    TetroActiveShape& shape = this->activeShape.value();
+                    TetroActiveShape movedShape = shape;
+                    if (down) { movedShape.y += 1; }
 
-                bool canMove = this->shapeCanPlaced(movedShape);
-                if(canMove) {
-                    this->activeShape.value() = movedShape;
-                } else if(down) {
-                    // Здесь нам нужна еще не сдвинутая фигура.
-                    for (int i = 0; i < shape.prototype.tilesCount; i++) {
-                        int x = shape.x + shape.prototype.offsetsX[i];
-                        int y = shape.y + shape.prototype.offsetsY[i];
-                        this->field.set(x, y, std::optional(shape.prototype.color));
+                    bool canMove = this->shapeCanPlaced(movedShape);
+                    if(canMove) {
+                        this->activeShape.value() = movedShape;
+                    } else {
+                        // Здесь нам нужна еще не сдвинутая фигура.
+                        for (int i = 0; i < shape.prototype.tilesCount; i++) {
+                            int x = shape.x + shape.prototype.offsetsX[i];
+                            int y = shape.y + shape.prototype.offsetsY[i];
+                            this->field.set(x, y, std::optional(shape.prototype.color));
+                        }
+                        this->spawnNextShape();
                     }
-                    this->spawnNextShape();
+                }
+                // handle left/right
+                {
+                    TetroActiveShape &shape = this->activeShape.value();
+                    TetroActiveShape movedShape = shape;
+                    if (left) { movedShape.x -= 1; }
+                    if (right) { movedShape.x += 1; }
+
+                    bool canMove = this->shapeCanPlaced(movedShape);
+                    if (canMove) {
+                        this->activeShape.value() = movedShape;
+                        this->tickAccSide = sideT;
+                    }
                 }
             } else {
                 this->spawnNextShape();
