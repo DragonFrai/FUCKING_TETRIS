@@ -61,7 +61,7 @@ public:
     void removeLine(int line) {
         for (int y = line; y > 0; y--) {
             for (int x = 0; x < FIELD_W; x++) {
-                auto upper = this->getAssured(x, y -1);
+                auto upper = this->getAssured(x, y - 1);
                 this->set(x, y, *upper);
             }
         }

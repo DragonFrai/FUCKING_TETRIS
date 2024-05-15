@@ -43,10 +43,6 @@ public:
     Texture texBlock;
 
     Texture menuNewGame;
-    Texture menuCleaningLine;
-    Texture menuCleaningColor;
-    Texture menuExtraTilesOff;
-    Texture menuExtraTilesOn;
     Texture menuExit;
 
     Resources(const Resources&) = delete;
@@ -58,20 +54,12 @@ Resources loadResources(SDL_Renderer* renderer) {
     auto texBlock = Texture(renderer, "assets/textures/t-block-s.bmp");
 
     auto menuNewGame = Texture(renderer, "assets/textures/menu/new-game.bmp");
-    auto menuCleaningLine = Texture(renderer, "assets/textures/menu/cleaning-line.bmp");
-    auto menuCleaningColor = Texture(renderer, "assets/textures/menu/cleaning-color.bmp");
-    auto menuExtraTilesOff = Texture(renderer, "assets/textures/menu/extra-tiles-off.bmp");
-    auto menuExtraTilesOn = Texture(renderer, "assets/textures/menu/extra-tiles-on.bmp");
     auto menuExit = Texture(renderer, "assets/textures/menu/exit.bmp");
 
     return Resources {
         std::move(texBlock),
 
         std::move(menuNewGame),
-        std::move(menuCleaningLine),
-        std::move(menuCleaningColor),
-        std::move(menuExtraTilesOff),
-        std::move(menuExtraTilesOn),
         std::move(menuExit)
     };
 };
@@ -158,7 +146,7 @@ SDL_Point point(int x, int y) {
 
 enum AppState { menu = 0, game = 1 };
 
-enum MenuElement { newGame = 0, cleaningMode = 1, extraTiles = 2, quit = 3 };
+enum MenuElement { newGame = 0, quit = 1 };
 
 enum CleaningMode { line = 0, color = 1 };
 
@@ -179,27 +167,27 @@ SDL_Color tileSdlColor(TetroColor color) {
 
 void fillShapeBag(std::vector<TetroShapeClass>* bag) {
     bag->clear();
-    TetroShapeClass base[14] = {
+    TetroShapeClass base[7] = {
             TetroShapeClass::L,
-            TetroShapeClass::L,
+//            TetroShapeClass::L,
             TetroShapeClass::J,
-            TetroShapeClass::J,
+//            TetroShapeClass::J,
             TetroShapeClass::I,
-            TetroShapeClass::I,
+//            TetroShapeClass::I,
             TetroShapeClass::T,
-            TetroShapeClass::T,
+//            TetroShapeClass::T,
             TetroShapeClass::O,
-            TetroShapeClass::O,
+//            TetroShapeClass::O,
             TetroShapeClass::Z,
-            TetroShapeClass::Z,
+//            TetroShapeClass::Z,
             TetroShapeClass::S,
-            TetroShapeClass::S
+//            TetroShapeClass::S
     };
-    for (int i = 0; i < 14; i++) { bag->push_back(base[i]); }
+    for (int i = 0; i < 7; i++) { bag->push_back(base[i]); }
 
-    for (int i = 0; i < 14; i++) {
+    for (int i = 0; i < 7; i++) {
         int i1 = i;
-        int i2 = std::rand() % 14;
+        int i2 = std::rand() % 7;
 
         auto class1 = bag->at(i1);
         auto class2 = bag->at(i2);
@@ -405,12 +393,6 @@ public:
                 case MenuElement::newGame:
                     this->setMainState(AppState::game);
                     break;
-                case MenuElement::cleaningMode:
-                    this->cleaningMode = static_cast<CleaningMode>((this->cleaningMode + 1) % 2);
-                    break;
-                case MenuElement::extraTiles:
-                    this->extraTilesMode = static_cast<ExtraTilesMode>((this->extraTilesMode + 1) % 2);
-                    break;
                 case MenuElement::quit:
                     this->input.exitRequired = true;
                     break;
@@ -421,7 +403,7 @@ public:
         }
 
         if (this->input.keyD.isPressed()) {
-            this->menuElement = static_cast<MenuElement>(this->menuElement < 3 ? this->menuElement + 1 : 3);
+            this->menuElement = static_cast<MenuElement>(this->menuElement < 1 ? this->menuElement + 1 : 1);
         }
         if (this->input.keyU.isPressed()) {
             this->menuElement = static_cast<MenuElement>(this->menuElement > 0 ? this->menuElement - 1 : 0);
@@ -544,7 +526,6 @@ public:
         for (int i = 0; i < count; i++) {
             int x = shape.x + shape.prototype.offsetsX[i];
             int y = shape.y + shape.prototype.offsetsY[i];
-            printf(" > dot at %i %i\n", x, y);
             if (x < 0 || x >= FIELD_W || y < 0 || y >= FIELD_H) { return false; }
             if (this->field.getAssured(x, y)->has_value()) { return false; }
         }
@@ -558,7 +539,7 @@ public:
         auto unActiveColor = COL_GRAY;
 
         auto baseX = (SCREEN_WIDTH - 256) / 2;
-        auto baseY = (SCREEN_HEIGHT - 32 * 4) / 2;
+        auto baseY = (SCREEN_HEIGHT - 32 * 2) / 2;
 
         {
             auto color = this->menuElement == MenuElement::newGame ? activeColor : unActiveColor;
@@ -566,28 +547,8 @@ public:
         }
 
         {
-            auto color = this->menuElement == MenuElement::cleaningMode ? activeColor : unActiveColor;
-            if (this->cleaningMode == CleaningMode::line) {
-                this->drawTextureCopyColored(this->resources.menuCleaningLine, point(baseX, baseY + 32*1), color);
-            }
-            if (this->cleaningMode == CleaningMode::color) {
-                this->drawTextureCopyColored(this->resources.menuCleaningColor, point(baseX, baseY + 32*1), color);
-            }
-        }
-
-        {
-            auto color = this->menuElement == MenuElement::extraTiles ? activeColor : unActiveColor;
-            if (this->extraTilesMode == ExtraTilesMode::off) {
-                this->drawTextureCopyColored(this->resources.menuExtraTilesOff, point(baseX, baseY + 32*2), color);
-            }
-            if (this->extraTilesMode == CleaningMode::color) {
-                this->drawTextureCopyColored(this->resources.menuExtraTilesOn, point(baseX, baseY + 32*2), color);
-            }
-        }
-
-        {
             auto color = this->menuElement == MenuElement::quit ? activeColor : unActiveColor;
-            this->drawTextureCopyColored(this->resources.menuExit, point(baseX, baseY + 32*3), color);
+            this->drawTextureCopyColored(this->resources.menuExit, point(baseX, baseY + 32*1), color);
         }
     }
 

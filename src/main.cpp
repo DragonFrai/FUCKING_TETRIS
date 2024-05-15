@@ -10,6 +10,8 @@ using namespace std::chrono_literals;
 
 int main( int argc, char* args[] )
 {
+    std::srand(time(NULL));
+
     auto app = Tetris_initApplication();
 
     bool doLoop = true;
