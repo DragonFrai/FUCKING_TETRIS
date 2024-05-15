@@ -178,6 +178,56 @@ SDL_Color tileSdlColor(TetroColor color) {
     }
 }
 
+void fillShapeBag(std::vector<TetroShapeClass>* bag) {
+    bag->clear();
+    TetroShapeClass base[14] = {
+            TetroShapeClass::L,
+            TetroShapeClass::L,
+            TetroShapeClass::J,
+            TetroShapeClass::J,
+            TetroShapeClass::I,
+            TetroShapeClass::I,
+            TetroShapeClass::T,
+            TetroShapeClass::T,
+            TetroShapeClass::O,
+            TetroShapeClass::O,
+            TetroShapeClass::Z,
+            TetroShapeClass::Z,
+            TetroShapeClass::S,
+            TetroShapeClass::S
+    };
+    for (int i = 0; i < 14; i++) { bag->push_back(base[i]); }
+
+    for (int i = 0; i < 14; i++) {
+        int i1 = std::rand() % 14;
+        int i2 = std::rand() % 14;
+
+        auto class1 = bag->at(i1);
+        auto class2 = bag->at(i2);
+
+        bag->at(i1) = class2;
+        bag->at(i2) = class1;
+    }
+}
+
+void fillColorBag(std::vector<TetroColor>* bag) {
+    bag->clear();
+    for (int i = 0; i < 6; i++) { bag->push_back(BASE_TILES[i]); }
+    for (int i = 0; i < 6; i++) { bag->push_back(BASE_TILES[i]); }
+
+    int size = bag->size();
+    for (int i = 0; i < size; i++) {
+        int i1 = std::rand() % size;
+        int i2 = std::rand() % size;
+
+        auto class1 = bag->at(i1);
+        auto class2 = bag->at(i2);
+
+        bag->at(i1) = class2;
+        bag->at(i2) = class1;
+    }
+}
+
 class App {
 public:
 
@@ -205,6 +255,7 @@ public:
     int score;
     float gameSpeed;
     std::vector<TetroShapeClass> shapeBag;
+    std::vector<TetroColor> colorBag;
     bool isLose;
 
     // [game state part]
@@ -233,6 +284,7 @@ public:
             score(0),
             gameSpeed(GAME_SPEED),
             shapeBag(std::vector<TetroShapeClass>()),
+            colorBag(std::vector<TetroColor>()),
             isLose(false)
     {}
 
@@ -248,6 +300,42 @@ public:
         drawTextureCopyColored(texture, point, SDL_Color { 255, 255, 255, 255});
     }
 
+    TetroShapeClass nextShapeClass() {
+        if (this->shapeBag.empty()) {
+            fillShapeBag(&this->shapeBag);
+        }
+
+        int last = this->shapeBag.size() - 1;
+        auto shapeClass = this->shapeBag.at(last);
+        this->shapeBag.pop_back();
+
+        return shapeClass;
+    }
+
+    TetroColor nextShapeColor() {
+        if (this->colorBag.empty()) {
+            fillColorBag(&this->colorBag);
+        }
+
+        int last = this->colorBag.size() - 1;
+        auto shapeColor = this->colorBag.at(last);
+        this->colorBag.pop_back();
+
+        return shapeColor;
+    }
+
+    void spawnNextShape() {
+        auto shapeClass = this->nextShapeClass();
+        auto shapeColor = this->nextShapeColor();
+        this->activeShape = std::optional(
+            TetroActiveShape(
+                4,
+                2,
+                TetroShapePrototype(shapeClass, shapeColor)
+            )
+        );
+    }
+
     void setMainState(AppState state) {
         if (this->__state == state) {
             printf("Change app __state to same");
@@ -259,6 +347,7 @@ public:
             this->tickAcc = 0.0;
             this->score = 0;
             this->isLose = false;
+            this->activeShape = std::nullopt;
             this->shapeBag.clear();
 
             for (int x = 0; x < FIELD_W; x++) {
@@ -272,12 +361,12 @@ public:
                 }
             }
 
-            this->activeShape = std::optional(
-                TetroActiveShape(
-                    4, 2,
-                    TetroShapePrototype(TetroShapeClass::L, TetroColor::blue)
-                )
-            );
+//            this->activeShape = std::optional(
+//                TetroActiveShape(
+//                    4, 2,
+//                    TetroShapePrototype(TetroShapeClass::L, TetroColor::blue)
+//                )
+//            );
         }
         if (this->__state == AppState::game && state == AppState::menu) {
             this->__state = state;
@@ -423,18 +512,12 @@ public:
                         int y = shape.y + shape.prototype.offsetsY[i];
                         this->field.set(x, y, std::optional(shape.prototype.color));
                     }
-                    this->activeShape = std::nullopt;
-                    this->activeShape = std::optional(
-                            TetroActiveShape(
-                                    4, 2,
-                                    TetroShapePrototype(TetroShapeClass::L, TetroColor::yellow)
-                            )
-                    );
+                    this->spawnNextShape();
                 }
+            } else {
+                this->spawnNextShape();
             }
         }
-
-
     }
 
     // Game logic
