@@ -3,6 +3,7 @@
 #include <vector>
 #include <optional>
 #include "render/texture.cpp"
+#include "render/digit_draw.cpp"
 #include "tetromino.cpp"
 
 #define GAME_SPEED 1.0
@@ -45,6 +46,9 @@ public:
     Texture menuNewGame;
     Texture menuExit;
 
+    Texture scoreText;
+    Texture digits;
+
     Resources(const Resources&) = delete;
     Resources(Resources&&) = default;
     ~Resources() = default;
@@ -56,11 +60,17 @@ Resources loadResources(SDL_Renderer* renderer) {
     auto menuNewGame = Texture(renderer, "assets/textures/menu/new-game.bmp");
     auto menuExit = Texture(renderer, "assets/textures/menu/exit.bmp");
 
+    auto scoreText = Texture(renderer, "assets/textures/common_ui/score-l.bmp");
+    auto digits = Texture(renderer, "assets/textures/common_ui/digits.bmp");
+
     return Resources {
         std::move(texBlock),
 
         std::move(menuNewGame),
-        std::move(menuExit)
+        std::move(menuExit),
+
+        std::move(scoreText),
+        std::move(digits)
     };
 };
 
@@ -199,7 +209,6 @@ void fillShapeBag(std::vector<TetroShapeClass>* bag) {
 
 void fillColorBag(std::vector<TetroColor>* bag) {
     bag->clear();
-    for (int i = 0; i < 6; i++) { bag->push_back(BASE_TILES[i]); }
     for (int i = 0; i < 6; i++) { bag->push_back(BASE_TILES[i]); }
 
     int size = bag->size();
@@ -435,8 +444,8 @@ public:
         auto tD = this->tickAccDown;
 
         float fallT = FALL_BASE_T / this->gameSpeed;
-        float sideT = fallT / 8.0;
         float forceFallT = fallT / 12.0;
+        float sideT = FALL_BASE_T / 8.0;
 
         bool downPressed = this->input.keyD.isDown();
         bool upPressed = this->input.keyU.isDown();
@@ -531,7 +540,16 @@ public:
         // обработка полных линий
         int removed = this->field.removeFullLines();
         if (removed > 0) {
-            printf("Removed %i lines\n", removed);
+            int dScore = 0;
+            switch (removed) {
+                case 1: dScore = 10 + 0; break;
+                case 2: dScore = 20 + 5; break;
+                case 3: dScore = 30 + 15; break;
+                case 4: dScore = 40 + 20; break;
+                default: dScore = 13 * removed; break;
+            }
+
+            this->score += dScore;
         }
     }
 
@@ -560,8 +578,6 @@ public:
         }
         return true;
     }
-
-
 
     void drawMenu() {
         auto activeColor = COL_WHITE;
@@ -599,17 +615,6 @@ public:
     }
 
     void drawGame() {
-//        // ====
-//        // DEBUG DRAW
-//        SDL_Color colors[6];
-//        for (int i = 0; i < 6; i++) {
-//            colors[i] = tileSdlColor(BASE_TILES[i]);
-//        }
-//        for(int i = 0; i < 6; i++) {
-//            drawTextureCopyColored(this->resources.texBlock, point(i * 16, 0), colors[i]);
-//        }
-//        // DEBUG DRAW
-//        // ====
 
         int fieldMinX = SCREEN_WIDTH / 2 - TILE_SIZE*FIELD_W / 2;
         int fieldMinY = SCREEN_HEIGHT / 2 - TILE_SIZE*VIEWABLE_FIELD_H / 2;
@@ -658,8 +663,8 @@ public:
 
         // next shape
         auto nextShape = this->peekNextShape();
-        int shapeX = fieldMinX + fieldW  + 80;
-        int shapeY = fieldMinY + fieldH / 8;
+        int shapeX = fieldMinX + fieldW + 16;
+        int shapeY = fieldMinY + 16;
         int shapeW = TILE_SIZE * 4;
         int shapeH = TILE_SIZE * 4;
 
@@ -677,6 +682,15 @@ public:
             SDL_SetRenderDrawColor(this->renderer, 0, 0, 0, 255);
         }
 
+        // score
+        int titleX = shapeX;
+        int titleY = shapeY + shapeH;
+        SDL_Rect dstRect = SDL_Rect { titleX, titleY, 80, 32 };
+        SDL_RenderCopy(this->renderer, this->resources.scoreText.sldHandle(), NULL, &dstRect);
+
+        int scoreX = titleX + 0;
+        int scoreY = titleY + 32;
+        drawNumber(this->renderer, &this->resources.digits, scoreX, scoreY, this->score, 3);
     }
 
     void drawState() {
