@@ -1,5 +1,6 @@
 #include <optional>
 #include <stdexcept>
+#include "shape_lines.cpp"
 
 #define FIELD_W 10
 #define FIELD_H 24
@@ -54,135 +55,98 @@ public:
 // ===================================
 // [ Падающая фигура из нескольких плиток! ]
 
-enum TetroRotateMode {
-    rotate, flip, none
-};
-
 enum TetroShapeClass {
     I, L, J, T, S, Z, O,
     // Extra
     Dot
 };
 
-
-// Center:
-// .  .  .  .
-// .  .  .  .
-// .  C  .  .
-// .  .  .  .
-
 class TetroShapePrototype {
 public:
+    TetroShapeClass clazz;
+    int variant;
+
     int tilesCount;
     int offsetsX[16];
     int offsetsY[16];
-    TetroRotateMode rotateMode;
     TetroColor color;
 
     TetroShapePrototype(const TetroShapePrototype& other) {
         this->tilesCount = other.tilesCount;
         std::copy(std::begin(other.offsetsX), std::end(other.offsetsX), this->offsetsX);
         std::copy(std::begin(other.offsetsY), std::end(other.offsetsY), this->offsetsY);
-        this->rotateMode = other.rotateMode;
         this->color = other.color;
     }
 
-    TetroShapePrototype(TetroShapeClass clazz, TetroColor color) {
-        this->color = color;
-        switch(clazz) {
+    TetroShapePrototype(TetroShapeClass clazz, int variant, TetroColor color) {
+        const char* line;
+        switch (clazz) {
+            case TetroShapeClass::O: line = SHAPE_O; break;
             case TetroShapeClass::I:
-                this->tilesCount = 4;
-                this->rotateMode = TetroRotateMode::flip;
-                this->offsetsX[0] = 0;
-                this->offsetsY[0] = -2;
-                this->offsetsX[1] = 0;
-                this->offsetsY[1] = -1;
-                this->offsetsX[2] = 0;
-                this->offsetsY[2] = 0;
-                this->offsetsX[3] = 0;
-                this->offsetsY[3] = 1;
-                break;
-            case TetroShapeClass::J:
-                this->tilesCount = 4;
-                this->rotateMode = TetroRotateMode::rotate;
-                this->offsetsX[0] = 0;
-                this->offsetsY[0] = -1;
-                this->offsetsX[1] = 0;
-                this->offsetsY[1] = 0;
-                this->offsetsX[2] = 0;
-                this->offsetsY[2] = 1;
-                this->offsetsX[3] = -1;
-                this->offsetsY[3] = 1;
-                break;
-            case TetroShapeClass::L:
-                this->tilesCount = 4;
-                this->rotateMode = TetroRotateMode::rotate;
-                this->offsetsX[0] = 0;
-                this->offsetsY[0] = -1;
-                this->offsetsX[1] = 0;
-                this->offsetsY[1] = 0;
-                this->offsetsX[2] = 0;
-                this->offsetsY[2] = 1;
-                this->offsetsX[3] = 1;
-                this->offsetsY[3] = 1;
-                break;
-            case TetroShapeClass::O:
-                this->tilesCount = 4;
-                this->rotateMode = TetroRotateMode::none;
-                this->offsetsX[0] = 0;
-                this->offsetsY[0] = 0;
-                this->offsetsX[1] = 0;
-                this->offsetsY[1] = 1;
-                this->offsetsX[2] = 1;
-                this->offsetsY[2] = 0;
-                this->offsetsX[3] = 1;
-                this->offsetsY[3] = 1;
-                break;
-            case TetroShapeClass::S:
-                this->tilesCount = 4;
-                this->rotateMode = TetroRotateMode::rotate;
-                this->offsetsX[0] = 1;
-                this->offsetsY[0] = 0;
-                this->offsetsX[1] = 0;
-                this->offsetsY[1] = 0;
-                this->offsetsX[2] = 0;
-                this->offsetsY[2] = 1;
-                this->offsetsX[3] = -1;
-                this->offsetsY[3] = 1;
-                break;
-            case TetroShapeClass::Z:
-                this->tilesCount = 4;
-                this->rotateMode = TetroRotateMode::rotate;
-                this->offsetsX[0] = -1;
-                this->offsetsY[0] = -1;
-                this->offsetsX[1] = -1;
-                this->offsetsY[1] = 0;
-                this->offsetsX[2] = 0;
-                this->offsetsY[2] = 0;
-                this->offsetsX[3] = 0;
-                this->offsetsY[3] = 1;
+                switch (variant % 2) {
+                    case 0: line = SHAPE_I_0; break;
+                    case 1: line = SHAPE_I_1; break;
+                }
                 break;
             case TetroShapeClass::T:
-                this->tilesCount = 4;
-                this->rotateMode = TetroRotateMode::rotate;
-                this->offsetsX[0] = 0;
-                this->offsetsY[0] = 0;
-                this->offsetsX[1] = -1;
-                this->offsetsY[1] = 0;
-                this->offsetsX[2] = 1;
-                this->offsetsY[2] = 0;
-                this->offsetsX[3] = 0;
-                this->offsetsY[3] = 1;
+                switch (variant % 4) {
+                    case 0: line = SHAPE_T_0; break;
+                    case 1: line = SHAPE_T_1; break;
+                    case 2: line = SHAPE_T_2; break;
+                    case 3: line = SHAPE_T_3; break;
+                }
                 break;
-
-            // EXTRA
-            case TetroShapeClass::Dot:
-                this->tilesCount = 1;
-                this->rotateMode = TetroRotateMode::none;
-                this->offsetsX[0] = 0;
-                this->offsetsY[0] = 0;
+            case TetroShapeClass::L:
+                switch (variant % 4) {
+                    case 0: line = SHAPE_L_0; break;
+                    case 1: line = SHAPE_L_1; break;
+                    case 2: line = SHAPE_L_2; break;
+                    case 3: line = SHAPE_L_3; break;
+                }
+                break;
+            case TetroShapeClass::J:
+                switch (variant % 4) {
+                    case 0: line = SHAPE_J_0; break;
+                    case 1: line = SHAPE_J_1; break;
+                    case 2: line = SHAPE_J_2; break;
+                    case 3: line = SHAPE_J_3; break;
+                }
+                break;
+            case TetroShapeClass::S:
+                switch (variant % 2) {
+                    case 0: line = SHAPE_S_0; break;
+                    case 1: line = SHAPE_S_1; break;
+                }
+                break;
+            case TetroShapeClass::Z:
+                switch (variant % 2) {
+                    case 0: line = SHAPE_Z_0; break;
+                    case 1: line = SHAPE_Z_1; break;
+                }
                 break;
         }
+
+        // init
+        this->clazz = clazz;
+        this->variant = variant;
+
+        int c = 0;
+        for (int i = 0; i < 16; i++) {
+            int x = i % 4;
+            int y = i / 4;
+            if (line[i] == '#') {
+                this->offsetsX[c] = x;
+                this->offsetsY[c] = y;
+                c += 1;
+            }
+        }
+
+        this->color = color;
+        this->tilesCount = c;
+    }
+
+    TetroShapePrototype rotated() {
+        return TetroShapePrototype(this->clazz, this->variant + 1, this->color);
     }
 };
 

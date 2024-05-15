@@ -199,7 +199,7 @@ void fillShapeBag(std::vector<TetroShapeClass>* bag) {
     for (int i = 0; i < 14; i++) { bag->push_back(base[i]); }
 
     for (int i = 0; i < 14; i++) {
-        int i1 = std::rand() % 14;
+        int i1 = i;
         int i2 = std::rand() % 14;
 
         auto class1 = bag->at(i1);
@@ -217,7 +217,7 @@ void fillColorBag(std::vector<TetroColor>* bag) {
 
     int size = bag->size();
     for (int i = 0; i < size; i++) {
-        int i1 = std::rand() % size;
+        int i1 = i;
         int i2 = std::rand() % size;
 
         auto class1 = bag->at(i1);
@@ -329,9 +329,9 @@ public:
         auto shapeColor = this->nextShapeColor();
         this->activeShape = std::optional(
             TetroActiveShape(
-                4,
-                2,
-                TetroShapePrototype(shapeClass, shapeColor)
+                3,
+                0,
+                TetroShapePrototype(shapeClass, 0, shapeColor)
             )
         );
     }
@@ -349,6 +349,7 @@ public:
             this->isLose = false;
             this->activeShape = std::nullopt;
             this->shapeBag.clear();
+            this->colorBag.clear();
 
             for (int x = 0; x < FIELD_W; x++) {
                 for (int y = 0; y < FIELD_H; y++) {
