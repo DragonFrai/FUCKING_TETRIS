@@ -349,24 +349,7 @@ public:
             this->activeShape = std::nullopt;
             this->shapeBag.clear();
             this->colorBag.clear();
-
-            for (int x = 0; x < FIELD_W; x++) {
-                for (int y = 0; y < FIELD_H; y++) {
-                    printf(" > %i %i\n", x, y);
-
-                    this->field.set(x, y, std::nullopt);
-//                    if ((x + y) % 2 == 0) {
-//                        this->field.set(x, y, std::optional(TetroColor::green));
-//                    }
-                }
-            }
-
-//            this->activeShape = std::optional(
-//                TetroActiveShape(
-//                    4, 2,
-//                    TetroShapePrototype(TetroShapeClass::L, TetroColor::blue)
-//                )
-//            );
+            this->field.clear();
         }
         if (this->__state == AppState::game && state == AppState::menu) {
             this->__state = state;
@@ -533,6 +516,12 @@ public:
                 this->spawnNextShape();
             }
         }
+
+        // обработка полных линий
+        int removed = this->field.removeFullLines();
+        if (removed > 0) {
+            printf("Removed %i lines\n", removed);
+        }
     }
 
     // Game logic
@@ -544,9 +533,9 @@ public:
             case AppState::game:
                 this->updateStateGame(dt);
                 break;
-//            default:
-//                printf("UNREACHABLE\n");
-//                exit(1);
+            default:
+                printf("UNREACHABLE\n");
+                exit(1);
         }
     }
 

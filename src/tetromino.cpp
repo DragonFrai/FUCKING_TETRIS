@@ -50,6 +50,48 @@ public:
         *memCell = tile;
     }
 
+    void clear() {
+        for (int x = 0; x < FIELD_W; x++) {
+            for (int y = 0; y < FIELD_H; y++) {
+
+            }
+        }
+    }
+
+    void removeLine(int line) {
+        for (int y = line; y > 0; y--) {
+            for (int x = 0; x < FIELD_W; x++) {
+                auto upper = this->getAssured(x, y -1);
+                this->set(x, y, *upper);
+            }
+        }
+
+        for (int x = 0; x < FIELD_W; x++) {
+            this->set(x, 0, std::nullopt);
+        }
+    }
+
+    bool lineIsFull(int line) {
+        bool isFull = true;
+        for (int x = 0; x < FIELD_W; x++) {
+            if (!this->getAssured(x, line)->has_value()) {
+                isFull = false;
+            }
+        }
+        return isFull;
+    }
+
+    int removeFullLines() {
+        int removedLines = 0;
+        for (int line = 0; line < FIELD_H; line++) {
+            if (this->lineIsFull(line)) {
+                this->removeLine(line);
+                removedLines += 1;
+            }
+        }
+        return removedLines;
+    }
+
 };
 
 // ===================================
