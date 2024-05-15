@@ -289,33 +289,40 @@ public:
         drawTextureCopyColored(texture, point, SDL_Color { 255, 255, 255, 255});
     }
 
-    TetroShapeClass nextShapeClass() {
+    TetroShapeClass nextShapeClass(bool remove) {
         if (this->shapeBag.empty()) {
             fillShapeBag(&this->shapeBag);
         }
 
         int last = this->shapeBag.size() - 1;
         auto shapeClass = this->shapeBag.at(last);
-        this->shapeBag.pop_back();
+        if (remove) { this->shapeBag.pop_back(); }
 
         return shapeClass;
     }
 
-    TetroColor nextShapeColor() {
+    TetroColor nextShapeColor(bool remove) {
         if (this->colorBag.empty()) {
             fillColorBag(&this->colorBag);
         }
 
         int last = this->colorBag.size() - 1;
         auto shapeColor = this->colorBag.at(last);
-        this->colorBag.pop_back();
+
+        if (remove) { this->colorBag.pop_back(); }
 
         return shapeColor;
     }
 
+    TetroShapePrototype peekNextShape() {
+        auto shapeClass = this->nextShapeClass(false);
+        auto shapeColor = this->nextShapeColor(false);
+        return TetroShapePrototype(shapeClass, 0, shapeColor);
+    }
+
     void spawnNextShape() {
-        auto shapeClass = this->nextShapeClass();
-        auto shapeColor = this->nextShapeColor();
+        auto shapeClass = this->nextShapeClass(true);
+        auto shapeColor = this->nextShapeColor(true);
         this->activeShape = std::optional(
             TetroActiveShape(
                 3,
@@ -592,17 +599,17 @@ public:
     }
 
     void drawGame() {
-        // ====
-        // DEBUG DRAW
-        SDL_Color colors[6];
-        for (int i = 0; i < 6; i++) {
-            colors[i] = tileSdlColor(BASE_TILES[i]);
-        }
-        for(int i = 0; i < 6; i++) {
-            drawTextureCopyColored(this->resources.texBlock, point(i * 16, 0), colors[i]);
-        }
-        // DEBUG DRAW
-        // ====
+//        // ====
+//        // DEBUG DRAW
+//        SDL_Color colors[6];
+//        for (int i = 0; i < 6; i++) {
+//            colors[i] = tileSdlColor(BASE_TILES[i]);
+//        }
+//        for(int i = 0; i < 6; i++) {
+//            drawTextureCopyColored(this->resources.texBlock, point(i * 16, 0), colors[i]);
+//        }
+//        // DEBUG DRAW
+//        // ====
 
         int fieldMinX = SCREEN_WIDTH / 2 - TILE_SIZE*FIELD_W / 2;
         int fieldMinY = SCREEN_HEIGHT / 2 - TILE_SIZE*VIEWABLE_FIELD_H / 2;
@@ -645,9 +652,31 @@ public:
             auto shape = this->activeShape.value();
             auto x = fieldMinX + shape.x * TILE_SIZE;
             auto y = fieldMinY + (shape.y - VIEWABLE_FIELD_Y) * TILE_SIZE;
-//            drawDynamicShape(shape.prototype, x, y, VIEWABLE_FIELD_Y - shape.y - 1);
-            drawDynamicShape(shape.prototype, x, y);
+            drawDynamicShape(shape.prototype, x, y, VIEWABLE_FIELD_Y - shape.y - 1);
+//            drawDynamicShape(shape.prototype, x, y);
         }
+
+        // next shape
+        auto nextShape = this->peekNextShape();
+        int shapeX = fieldMinX + fieldW  + 80;
+        int shapeY = fieldMinY + fieldH / 8;
+        int shapeW = TILE_SIZE * 4;
+        int shapeH = TILE_SIZE * 4;
+
+        drawDynamicShape(nextShape, shapeX, shapeY);
+        {
+            int x1 = shapeX - 1;
+            int y1 = shapeY - 1;
+            int x2 = shapeX + shapeW;
+            int y2 = shapeY + shapeH;
+            SDL_SetRenderDrawColor(this->renderer, 128, 128, 128, 255);
+            SDL_RenderDrawLine(this->renderer, x1, y1, x1, y2);
+            SDL_RenderDrawLine(this->renderer, x1, y1, x2, y1);
+            SDL_RenderDrawLine(this->renderer, x2, y2, x1, y2);
+            SDL_RenderDrawLine(this->renderer, x2, y2, x2, y1);
+            SDL_SetRenderDrawColor(this->renderer, 0, 0, 0, 255);
+        }
+
     }
 
     void drawState() {
