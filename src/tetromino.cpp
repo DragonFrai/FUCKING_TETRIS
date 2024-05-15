@@ -76,9 +76,21 @@ public:
         for (int x = 0; x < FIELD_W; x++) {
             if (!this->getAssured(x, line)->has_value()) {
                 isFull = false;
+                break;
             }
         }
         return isFull;
+    }
+
+    bool lineIsEmpty(int line) {
+        bool isEmpty = true;
+        for (int x = 0; x < FIELD_W; x++) {
+            if (this->getAssured(x, line)->has_value()) {
+                isEmpty = false;
+                break;
+            }
+        }
+        return isEmpty;
     }
 
     int removeFullLines() {

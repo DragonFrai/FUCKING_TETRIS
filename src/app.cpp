@@ -48,6 +48,7 @@ public:
 
     Texture scoreText;
     Texture digits;
+    Texture gameOver;
 
     Resources(const Resources&) = delete;
     Resources(Resources&&) = default;
@@ -62,6 +63,7 @@ Resources loadResources(SDL_Renderer* renderer) {
 
     auto scoreText = Texture(renderer, "assets/textures/common_ui/score-l.bmp");
     auto digits = Texture(renderer, "assets/textures/common_ui/digits.bmp");
+    auto gameOver = Texture(renderer, "assets/textures/common_ui/game-over.bmp");
 
     return Resources {
         std::move(texBlock),
@@ -70,7 +72,8 @@ Resources loadResources(SDL_Renderer* renderer) {
         std::move(menuExit),
 
         std::move(scoreText),
-        std::move(digits)
+        std::move(digits),
+        std::move(gameOver)
     };
 };
 
@@ -341,6 +344,17 @@ public:
         );
     }
 
+    void resetGameState() {
+        this->field = TetroField();
+        this->tickAccDown = 0.0;
+        this->score = 0;
+        this->isLose = false;
+        this->activeShape = std::nullopt;
+        this->shapeBag.clear();
+        this->colorBag.clear();
+        this->field.clear();
+    }
+
     void setMainState(AppState state) {
         if (this->__state == state) {
             printf("Change app __state to same");
@@ -348,14 +362,7 @@ public:
         }
         if (this->__state == AppState::menu && state == AppState::game) {
             this->__state = state;
-            this->field = TetroField();
-            this->tickAccDown = 0.0;
-            this->score = 0;
-            this->isLose = false;
-            this->activeShape = std::nullopt;
-            this->shapeBag.clear();
-            this->colorBag.clear();
-            this->field.clear();
+            this->resetGameState();
         }
         if (this->__state == AppState::game && state == AppState::menu) {
             this->__state = state;
@@ -432,7 +439,12 @@ public:
         // Проверка выхода
         if (this->input.keyBack.isPressed()) { this->setMainState(AppState::menu); return; }
         // Проверка проигрыша
-        if (this->isLose) { return; }
+        if (this->isLose) {
+            if (this->input.keyAction.isPressed()) {
+                this->resetGameState();
+            }
+            return;
+        }
 
         // Определение управление фигурой
         this->tickAccDown += dt;
@@ -548,8 +560,19 @@ public:
                 case 4: dScore = 40 + 20; break;
                 default: dScore = 13 * removed; break;
             }
-
             this->score += dScore;
+        }
+
+        // Обработка проигрыша
+        {
+            bool isLose = false;
+            for (int y = 0; y < VIEWABLE_FIELD_Y; y++) {
+                if (!this->field.lineIsEmpty(y)) {
+                    isLose = true;
+                    break;
+                }
+            }
+            if (isLose) { this->isLose = true; }
         }
     }
 
@@ -685,12 +708,23 @@ public:
         // score
         int titleX = shapeX;
         int titleY = shapeY + shapeH;
-        SDL_Rect dstRect = SDL_Rect { titleX, titleY, 80, 32 };
+        SDL_Rect dstRect = SDL_Rect{titleX, titleY, 80, 32};
         SDL_RenderCopy(this->renderer, this->resources.scoreText.sldHandle(), NULL, &dstRect);
 
         int scoreX = titleX + 0;
         int scoreY = titleY + 32;
         drawNumber(this->renderer, &this->resources.digits, scoreX, scoreY, this->score, 3);
+
+        // lose
+        if (this->isLose) {
+            int w = 80;
+            int h = 64;
+            int x = SCREEN_WIDTH / 2 - w / 2;
+            int y = SCREEN_HEIGHT / 2 - h / 2;
+
+            SDL_Rect dstRect = SDL_Rect { x, y, w, h };
+            SDL_RenderCopy(this->renderer, this->resources.gameOver.sldHandle(), NULL, &dstRect);
+        }
     }
 
     void drawState() {
